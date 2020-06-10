@@ -36,7 +36,8 @@ resource "aws_vpc" "a4_vpc_csye6225" {
   enable_classiclink_dns_support = true
   assign_generated_ipv6_cidr_block = false
   tags = {
-      Name = "${var.vpctag}"
+      Name = "${var.vpctag}${terraform.workspace}"
+      Environment = "${terraform.workspace}"
   }
 }
 resource "aws_subnet" "subnet1" {
