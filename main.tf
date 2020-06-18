@@ -157,6 +157,7 @@ resource "aws_kms_key" "kmskey" {
 resource "aws_s3_bucket" "bucket" {
   bucket = "webapp.vaibhav.dhoke"
   acl    = "private"
+  force_destroy = true
   server_side_encryption_configuration {
     rule {
       apply_server_side_encryption_by_default {
@@ -198,6 +199,7 @@ resource "aws_db_instance" "csye6225-su2020" {
   username               = "${var.rds_username}"
   password               = "${var.rds_password}"
   publicly_accessible    = "false"
+  skip_final_snapshot = true
   name                   = "${var.db_name}"
   multi_az               = "false"
   vpc_security_group_ids = ["${aws_security_group.database.id}"]
@@ -205,6 +207,12 @@ resource "aws_db_instance" "csye6225-su2020" {
 }
 
 variable "ami_id" {
+  type = "string"
+}
+variable "accesskey" {
+  type = "string"
+}
+variable "secretkey" {
   type = "string"
 }
 resource "aws_instance" "web" {
@@ -238,7 +246,9 @@ cat > /home/ubuntu/webapp/config/config.json << EOF
     "dialect": "mysql",
     "operatorsAliases": false,
     "s3bucket": "${aws_s3_bucket.bucket.bucket}",
-    "region": "${var.region}"
+    "region": "${var.region}",
+    "accesskey":"${var.accesskey}",
+    "secretkey":"${var.secretkey}"
   }
 }
 EOF

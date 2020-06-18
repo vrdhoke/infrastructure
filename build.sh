@@ -14,7 +14,9 @@ terraform plan -var="vpccider=10.0.0.0/24" \
                -var="ami_id=ami-05e623ee887a22b09" \
                -var="rds_username=csye6225_su2020" \
                -var="rds_password=vrd141293" \
-               -var="db_name=csye6225" 
+               -var="db_name=csye6225" \
+               -var="accesskey=AKIA5TF6VWGVV3BYIJU3" \
+               -var="secretkey=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"
 terraform apply -auto-approve -var="vpccider=10.0.0.0/24" \
                               -var="subnet1cider=10.0.0.0/26" \
                               -var="subnet2cider=10.0.0.64/26" \
@@ -28,4 +30,6 @@ terraform apply -auto-approve -var="vpccider=10.0.0.0/24" \
                               -var="ami_id=ami-05e623ee887a22b09" \
                               -var="rds_username=csye6225_su2020" \
                               -var="rds_password=vrd141293" \
-                              -var="db_name=csye6225" 
+                              -var="db_name=csye6225" \
+                              -var="accesskey=AKIA5TF6VWGVV3BYIJU3" \
+                              -var="secretkey=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"
