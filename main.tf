@@ -150,10 +150,6 @@ resource "aws_security_group" "database" {
     security_groups = ["${aws_security_group.application.id}"]
   }
 }
-resource "aws_kms_key" "kmskey" {
-  description             = "KMS key for encryption of s3 bucket objects"
-  deletion_window_in_days = 7
-}
 resource "aws_s3_bucket" "bucket" {
   bucket = "webapp.vaibhav.dhoke"
   acl    = "private"
@@ -161,8 +157,7 @@ resource "aws_s3_bucket" "bucket" {
   server_side_encryption_configuration {
     rule {
       apply_server_side_encryption_by_default {
-        kms_master_key_id = "${aws_kms_key.kmskey.arn}"
-        sse_algorithm     = "aws:kms"
+        sse_algorithm     = "AES256"
       }
     }
   }
@@ -209,12 +204,15 @@ resource "aws_db_instance" "csye6225-su2020" {
 variable "ami_id" {
   type = "string"
 }
-variable "accesskey" {
+variable "ec2_s3iamprofile" {
   type = "string"
 }
-variable "secretkey" {
-  type = "string"
+
+resource "aws_iam_instance_profile" "ec2_s3iamprofile" {
+  name = "${var.ec2_s3iamprofile}"
+  role = "${aws_iam_role.role.name}"
 }
+
 resource "aws_instance" "web" {
   ami                     = "${var.ami_id}"
   instance_type           = "t2.micro"
@@ -223,18 +221,20 @@ resource "aws_instance" "web" {
   vpc_security_group_ids  = ["${aws_security_group.application.id}"]
   depends_on              = [aws_db_instance.csye6225-su2020]
   key_name                = "csye6225_su20_aws"
+  iam_instance_profile    = "${aws_iam_instance_profile.ec2_s3iamprofile.name}"
   root_block_device {
     volume_type           = "gp2"
     volume_size           = 20
     delete_on_termination = "true"
   }
   tags = {
-    Name = "EC2 Instance from Terraform"
+    Name = "EC2 Instance from Terraform",
+    cicd = "codedeploy"
   }
   user_data = <<-EOFS
 #!/bin/bash
 sudo mkdir /home/ubuntu/webapp
-sudo chmod 777 /home/ubuntu/webapp
+sudo chmod 755 /home/ubuntu/webapp
 sudo mkdir /home/ubuntu/webapp/config
 cat > /home/ubuntu/webapp/config/config.json << EOF
 {
@@ -246,9 +246,7 @@ cat > /home/ubuntu/webapp/config/config.json << EOF
     "dialect": "mysql",
     "operatorsAliases": false,
     "s3bucket": "${aws_s3_bucket.bucket.bucket}",
-    "region": "${var.region}",
-    "accesskey":"${var.accesskey}",
-    "secretkey":"${var.secretkey}"
+    "region": "${var.region}"
   }
 }
 EOF
@@ -266,6 +264,10 @@ resource "aws_dynamodb_table" "dynamodb" {
   write_capacity = 20
 }
 
+variable "images3bucket" {
+  type = "string"
+}
+
 resource "aws_iam_policy" "policy" {
   name        = "WebAppS3"
   description = "EC2 S3 policy"
@@ -281,8 +283,8 @@ resource "aws_iam_policy" "policy" {
       ],
       "Effect": "Allow",
       "Resource": [
-                "arn:aws:s3:::webapp.vaibhav.dhoke",
-                "arn:aws:s3:::webapp.vaibhav.dhoke/*"
+                "arn:aws:s3:::${var.images3bucket}",
+                "arn:aws:s3:::${var.images3bucket}/*"
             ]
     }
   ]
@@ -315,3 +317,218 @@ resource "aws_iam_role_policy_attachment" "rolepolicyattachment" {
   role       = "${aws_iam_role.role.name}"
   policy_arn = "${aws_iam_policy.policy.arn}"
 }
+
+resource "aws_iam_role_policy_attachment" "rolepolicyattachment1" {
+  role       = "${aws_iam_role.role.name}"
+  policy_arn = "${aws_iam_policy.policy1.arn}"
+}
+
+variable "codedeploy_bktname" {
+  type = "string"
+}
+
+resource "aws_iam_policy" "policy1" {
+  name        = "CodeDeploy-EC2-S3"
+  description = "This policy allows EC2 instances to read data from S3 buckets"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+              "s3:GetObject",
+              "s3:ListBucket"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+                "arn:aws:s3:::${var.codedeploy_bktname}",
+                "arn:aws:s3:::${var.codedeploy_bktname}/*"
+            ]
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_policy" "policy2" {
+  name        = "CircleCI-Upload-To-S3"
+  description = "This policy allows CircleCI to upload artifacts from latest successful build to dedicated S3 bucket"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:ListBucket"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+                "arn:aws:s3:::${var.codedeploy_bktname}",
+                "arn:aws:s3:::${var.codedeploy_bktname}/*"
+            ]
+    }
+  ]
+}
+EOF
+}
+
+variable "aws_account_id" {
+  type = "string"
+}
+
+
+resource "aws_iam_policy" "policy3" {
+  name        = "CircleCI-Code-Deploy"
+  description = "This policy allows allows CircleCI to call CodeDeploy APIs to initiate application deployment on EC2 instances"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "codedeploy:RegisterApplicationRevision",
+        "codedeploy:GetApplicationRevision"
+      ],
+      "Resource": [
+        "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:application:csye6225-webapp"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "codedeploy:CreateDeployment",
+        "codedeploy:GetDeployment"
+      ],
+      "Resource": [
+        "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:deploymentgroup:csye6225-webapp/csye6225-webapp-deployment"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "codedeploy:GetDeploymentConfig"
+      ],
+      "Resource": [
+        "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:deploymentconfig:CodeDeployDefault.OneAtATime",
+        "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:deploymentconfig:CodeDeployDefault.HalfAtATime",
+        "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:deploymentconfig:CodeDeployDefault.AllAtOnce"
+      ]
+    }
+  ]
+}
+EOF
+}
+
+variable "circleciuser" {
+  type = "string"
+}
+
+variable "packerpolicy" {
+  type = "string"
+}
+
+resource "aws_iam_user_policy_attachment" "cicd-attach" {
+  user       = "${var.circleciuser}"
+  policy_arn = "${aws_iam_policy.policy2.arn}"
+}
+
+resource "aws_iam_user_policy_attachment" "cicd-attach1" {
+  user       = "${var.circleciuser}"
+  policy_arn = "${aws_iam_policy.policy3.arn}"
+}
+
+resource "aws_iam_user_policy_attachment" "cicd-attach2" {
+  user       = "${var.circleciuser}"
+  policy_arn = "${var.packerpolicy}"
+}
+
+resource "aws_iam_role" "role1" {
+  name = "CodeDeployEC2ServiceRole"
+  description = "Allows EC2 instances to call AWS services on your behalf"
+
+  assume_role_policy = <<EOF
+{
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Action": "sts:AssumeRole",
+          "Principal": {
+            "Service": "ec2.amazonaws.com"
+          },
+          "Effect": "Allow",
+          "Sid": ""
+        }
+      ]
+}
+EOF
+
+}
+
+resource "aws_iam_role_policy_attachment" "test-attach" {
+  role       = "${aws_iam_role.role1.name}"
+  policy_arn = "${aws_iam_policy.policy1.arn}"
+}
+
+resource "aws_iam_role" "role2" {
+  name = "CodeDeployServiceRole"
+  description = "Allows EC2 instances to call AWS services on your behalf"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "codedeploy.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+
+}
+
+
+resource "aws_iam_role_policy_attachment" "test-attach1" {
+  role       = "${aws_iam_role.role2.name}"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+}
+
+resource "aws_codedeploy_app" "csye6225-webapp" {
+  compute_platform = "Server"
+  name             = "csye6225-webapp"
+}
+
+resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
+  app_name              = "${aws_codedeploy_app.csye6225-webapp.name}"
+  deployment_group_name = "csye6225-webapp-deployment"
+  service_role_arn      = "${aws_iam_role.role2.arn}"
+  deployment_config_name = "CodeDeployDefault.AllAtOnce"
+
+  deployment_style {
+    deployment_type   = "IN_PLACE"
+  }
+
+  ec2_tag_set {
+    ec2_tag_filter {
+      key   = "cicd"
+      type  = "KEY_AND_VALUE"
+      value = "codedeploy"
+    }
+  }
+
+  auto_rollback_configuration {
+    enabled = true
+    events  = ["DEPLOYMENT_FAILURE"]
+  }
+}
+

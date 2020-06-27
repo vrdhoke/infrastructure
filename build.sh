@@ -11,12 +11,16 @@ terraform plan -var="vpccider=10.0.0.0/24" \
                -var="availablezone2=us-east-1b" \
                -var="availablezone3=us-east-1c" \
                -var="vpctag=a4_vpc_csye6225" \
-               -var="ami_id=ami-05e623ee887a22b09" \
+               -var="ami_id=ami-02f97a0769c597bbd" \
                -var="rds_username=csye6225_su2020" \
                -var="rds_password=vrd141293" \
                -var="db_name=csye6225" \
-               -var="accesskey=AKIA5TF6VWGVV3BYIJU3" \
-               -var="secretkey=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"
+               -var="circleciuser=cicd" \
+               -var="aws_account_id=934555267499" \
+               -var="codedeploy_bktname=codedeploy.vaibhavdhoke.me" \
+               -var="ec2_s3iamprofile=ec2_s3iamprofile" \
+               -var="images3bucket=webapp.vaibhav.dhoke" \
+               -var="packerpolicy=arn:aws:iam::934555267499:policy/circleci-ec2-ami" 
 terraform apply -auto-approve -var="vpccider=10.0.0.0/24" \
                               -var="subnet1cider=10.0.0.0/26" \
                               -var="subnet2cider=10.0.0.64/26" \
@@ -27,9 +31,13 @@ terraform apply -auto-approve -var="vpccider=10.0.0.0/24" \
                               -var="availablezone2=us-east-1b" \
                               -var="availablezone3=us-east-1c" \
                               -var="vpctag=a4_vpc_csye6225" \
-                              -var="ami_id=ami-05e623ee887a22b09" \
+                              -var="ami_id=ami-02f97a0769c597bbd" \
                               -var="rds_username=csye6225_su2020" \
                               -var="rds_password=vrd141293" \
                               -var="db_name=csye6225" \
-                              -var="accesskey=AKIA5TF6VWGVV3BYIJU3" \
-                              -var="secretkey=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"
+                              -var="circleciuser=cicd" \
+                              -var="aws_account_id=934555267499" \
+                              -var="codedeploy_bktname=codedeploy.vaibhavdhoke.me" \
+                              -var="ec2_s3iamprofile=ec2_s3iamprofile" \
+                              -var="images3bucket=webapp.vaibhav.dhoke" \
+                              -var="packerpolicy=arn:aws:iam::934555267499:policy/circleci-ec2-ami"
