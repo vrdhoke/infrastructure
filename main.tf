@@ -150,7 +150,7 @@ resource "aws_security_group" "database" {
   }
 }
 resource "aws_s3_bucket" "bucket" {
-  bucket = "webapp.vaibhav.dhoke"
+  bucket = "${var.images3bucket}"
   acl    = "private"
   force_destroy = true
   server_side_encryption_configuration {
