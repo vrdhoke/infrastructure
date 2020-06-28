@@ -146,7 +146,6 @@ resource "aws_security_group" "database" {
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"
-    cidr_blocks     = [aws_vpc.a4_vpc_csye6225.cidr_block]
     security_groups = ["${aws_security_group.application.id}"]
   }
 }

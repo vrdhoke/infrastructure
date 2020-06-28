@@ -11,7 +11,7 @@ terraform plan -var="vpccider=10.0.0.0/24" \
                -var="availablezone2=us-east-1b" \
                -var="availablezone3=us-east-1c" \
                -var="vpctag=a4_vpc_csye6225" \
-               -var="ami_id=ami-02f97a0769c597bbd" \
+               -var="ami_id=ami-0f4a8e72353ebd4f2" \
                -var="rds_username=csye6225_su2020" \
                -var="rds_password=vrd141293" \
                -var="db_name=csye6225" \
@@ -31,7 +31,7 @@ terraform apply -auto-approve -var="vpccider=10.0.0.0/24" \
                               -var="availablezone2=us-east-1b" \
                               -var="availablezone3=us-east-1c" \
                               -var="vpctag=a4_vpc_csye6225" \
-                              -var="ami_id=ami-02f97a0769c597bbd" \
+                              -var="ami_id=ami-0f4a8e72353ebd4f2" \
                               -var="rds_username=csye6225_su2020" \
                               -var="rds_password=vrd141293" \
                               -var="db_name=csye6225" \
