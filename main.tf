@@ -322,6 +322,16 @@ resource "aws_iam_role_policy_attachment" "rolepolicyattachment1" {
   policy_arn = "${aws_iam_policy.policy1.arn}"
 }
 
+resource "aws_iam_role_policy_attachment" "cloudwatch-ec2-attach" {
+  role       = "${aws_iam_role.role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatchadmin-ec2-attach" {
+  role       = "${aws_iam_role.role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
+}
+
 variable "codedeploy_bktname" {
   type = "string"
 }
