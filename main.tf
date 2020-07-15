@@ -111,25 +111,25 @@ resource "aws_security_group" "application" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups    = ["${aws_security_group.lb_securitygroup.id}"]
   }
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups    = ["${aws_security_group.lb_securitygroup.id}"]
   }
   ingress {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups    = ["${aws_security_group.lb_securitygroup.id}"]
   }
   ingress {
     from_port   = 5000
     to_port     = 5000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups    = ["${aws_security_group.lb_securitygroup.id}"]
   }
   egress {
     from_port   = 0
@@ -212,45 +212,45 @@ resource "aws_iam_instance_profile" "ec2_s3iamprofile" {
   role = "${aws_iam_role.role.name}"
 }
 
-resource "aws_instance" "web" {
-  ami                     = "${var.ami_id}"
-  instance_type           = "t2.micro"
-  disable_api_termination = "false"
-  subnet_id               = "${aws_subnet.subnet1.id}"
-  vpc_security_group_ids  = ["${aws_security_group.application.id}"]
-  depends_on              = [aws_db_instance.csye6225-su2020]
-  key_name                = "csye6225_su20_aws"
-  iam_instance_profile    = "${aws_iam_instance_profile.ec2_s3iamprofile.name}"
-  root_block_device {
-    volume_type           = "gp2"
-    volume_size           = 20
-    delete_on_termination = "true"
-  }
-  tags = {
-    Name = "EC2 Instance from Terraform",
-    cicd = "codedeploy"
-  }
-  user_data = <<-EOFS
-#!/bin/bash
-sudo mkdir /home/ubuntu/webapp
-sudo chmod 755 /home/ubuntu/webapp
-sudo mkdir /home/ubuntu/webapp/config
-cat > /home/ubuntu/webapp/config/config.json << EOF
-{
-"development": {
-    "username": "${aws_db_instance.csye6225-su2020.username}",
-    "password": "${aws_db_instance.csye6225-su2020.password}",
-    "database": "${aws_db_instance.csye6225-su2020.name}",
-    "host": "${aws_db_instance.csye6225-su2020.address}",
-    "dialect": "mysql",
-    "operatorsAliases": false,
-    "s3bucket": "${aws_s3_bucket.bucket.bucket}",
-    "region": "${var.region}"
-  }
-}
-EOF
-EOFS
-}
+# resource "aws_instance" "web" {
+#   ami                     = "${var.ami_id}"
+#   instance_type           = "t2.micro"
+#   disable_api_termination = "false"
+#   subnet_id               = "${aws_subnet.subnet1.id}"
+#   vpc_security_group_ids  = ["${aws_security_group.application.id}"]
+#   depends_on              = [aws_db_instance.csye6225-su2020]
+#   key_name                = "csye6225_su20_aws"
+#   iam_instance_profile    = "${aws_iam_instance_profile.ec2_s3iamprofile.name}"
+#   root_block_device {
+#     volume_type           = "gp2"
+#     volume_size           = 20
+#     delete_on_termination = "true"
+#   }
+#   tags = {
+#     Name = "EC2 Instance from Terraform",
+#     cicd = "codedeploy"
+#   }
+#   user_data = <<-EOFS
+# #!/bin/bash
+# sudo mkdir /home/ubuntu/webapp
+# sudo chmod 755 /home/ubuntu/webapp
+# sudo mkdir /home/ubuntu/webapp/config
+# cat > /home/ubuntu/webapp/config/config.json << EOF
+# {
+# "development": {
+#     "username": "${aws_db_instance.csye6225-su2020.username}",
+#     "password": "${aws_db_instance.csye6225-su2020.password}",
+#     "database": "${aws_db_instance.csye6225-su2020.name}",
+#     "host": "${aws_db_instance.csye6225-su2020.address}",
+#     "dialect": "mysql",
+#     "operatorsAliases": false,
+#     "s3bucket": "${aws_s3_bucket.bucket.bucket}",
+#     "region": "${var.region}"
+#   }
+# }
+# EOF
+# EOFS
+# }
 
 resource "aws_dynamodb_table" "dynamodb" {
   name           = "csye6225"
@@ -522,7 +522,7 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
   deployment_group_name = "csye6225-webapp-deployment"
   service_role_arn      = "${aws_iam_role.role2.arn}"
   deployment_config_name = "CodeDeployDefault.AllAtOnce"
-
+  
   deployment_style {
     deployment_type   = "IN_PLACE"
   }
@@ -539,5 +539,186 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
     enabled = true
     events  = ["DEPLOYMENT_FAILURE"]
   }
+  autoscaling_groups     = ["${aws_autoscaling_group.auto_scale_group.name}"]
 }
 
+resource "aws_launch_configuration" "launch_config" {
+  name          = "asg_launch_config"
+  image_id      = "${var.ami_id}"
+  instance_type = "t2.micro"
+  key_name      = "csye6225_su20_aws"
+  associate_public_ip_address = true
+  iam_instance_profile    = "${aws_iam_instance_profile.ec2_s3iamprofile.name}"
+  security_groups  = ["${aws_security_group.application.id}"]
+  root_block_device {
+    volume_size           = 20
+    volume_type           = "gp2"
+    delete_on_termination = "true"
+  }
+    user_data = <<-EOFS
+#!/bin/bash
+sudo mkdir /home/ubuntu/webapp
+sudo chmod 755 /home/ubuntu/webapp
+sudo mkdir /home/ubuntu/webapp/config
+cat > /home/ubuntu/webapp/config/config.json << EOF
+{
+"development": {
+    "username": "${aws_db_instance.csye6225-su2020.username}",
+    "password": "${aws_db_instance.csye6225-su2020.password}",
+    "database": "${aws_db_instance.csye6225-su2020.name}",
+    "host": "${aws_db_instance.csye6225-su2020.address}",
+    "dialect": "mysql",
+    "operatorsAliases": false,
+    "s3bucket": "${aws_s3_bucket.bucket.bucket}",
+    "region": "${var.region}"
+  }
+}
+EOF
+EOFS
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_autoscaling_group" "auto_scale_group" {
+  name                 = "webapp_asg"
+  default_cooldown = 60
+  launch_configuration = "${aws_launch_configuration.launch_config.name}"
+  min_size             = 2
+  max_size             = 5
+  desired_capacity     = 2
+  vpc_zone_identifier       = ["${aws_subnet.subnet1.id}"]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  # tag {
+  #   key = "environment"
+  #   value = "test"
+  #   propagate_at_launch = true
+  # }
+
+  tag {
+    key                 = "cicd"
+    value               = "codedeploy"
+    propagate_at_launch = true
+  }
+}
+
+resource "aws_autoscaling_policy" "asg_scale_up_policy" {
+  name                   = "WebServerScaleUpPolicy"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 60
+  autoscaling_group_name = "${aws_autoscaling_group.auto_scale_group.name}"
+}
+
+resource "aws_autoscaling_policy" "asg_scale_down_policy" {
+  name                   = "WebServerScaleDownPolicy"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 60
+  autoscaling_group_name = "${aws_autoscaling_group.auto_scale_group.name}"
+}
+
+
+resource "aws_cloudwatch_metric_alarm" "CPUAlarmHigh" {
+  alarm_name          = "CPUAlarmHigh"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "5"
+
+  alarm_description = "Scale-up if CPU > 5% for 2 minutes"
+  alarm_actions     = ["${aws_autoscaling_policy.asg_scale_up_policy.arn}"]
+
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.auto_scale_group.name}"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "CPUAlarmLow" {
+  alarm_name          = "CPUAlarmLow"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "3"
+
+  alarm_description = "Scale-down if CPU < 3% for 2 minutes"
+  alarm_actions     = ["${aws_autoscaling_policy.asg_scale_down_policy.arn}"]
+
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.auto_scale_group.name}"
+  }
+}
+
+resource "aws_security_group" "lb_securitygroup" {
+  name        = "lb_securitygroup"
+  description = "Load Balancer Security Group"
+  vpc_id      = "${aws_vpc.a4_vpc_csye6225.id}"
+
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+
+resource "aws_lb" "application_load_balancer" {
+  name               = "webapp-lb"
+  load_balancer_type = "application"
+  security_groups    = ["${aws_security_group.lb_securitygroup.id}"]
+  subnets            = ["${aws_subnet.subnet1.id}","${aws_subnet.subnet2.id}"]
+}
+
+resource "aws_lb_target_group" "target_group" {
+  name     = "webapp-tg"
+  port     = 5000
+  protocol = "HTTP"
+  vpc_id   = "${aws_vpc.a4_vpc_csye6225.id}"
+}
+
+resource "aws_lb_listener" "load_balancer_listener" {
+  load_balancer_arn = "${aws_lb.application_load_balancer.arn}"
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = "${aws_lb_target_group.target_group.arn}"
+  }
+}
+
+resource "aws_autoscaling_attachment" "autoscalinggroup_attachment" {
+  autoscaling_group_name = "${aws_autoscaling_group.auto_scale_group.id}"
+  alb_target_group_arn   = "${aws_lb_target_group.target_group.arn}"
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = "Z1043665JCUIEHNTMO9A"
+  name    = "prod.vaibhavdhoke.me"
+  type    = "A"
+
+  alias {
+    name                   = "${aws_lb.application_load_balancer.dns_name}"
+    zone_id                = "${aws_lb.application_load_balancer.zone_id}"
+    evaluate_target_health = true
+  }
+}
