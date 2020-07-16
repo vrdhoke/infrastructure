@@ -212,46 +212,6 @@ resource "aws_iam_instance_profile" "ec2_s3iamprofile" {
   role = "${aws_iam_role.role.name}"
 }
 
-# resource "aws_instance" "web" {
-#   ami                     = "${var.ami_id}"
-#   instance_type           = "t2.micro"
-#   disable_api_termination = "false"
-#   subnet_id               = "${aws_subnet.subnet1.id}"
-#   vpc_security_group_ids  = ["${aws_security_group.application.id}"]
-#   depends_on              = [aws_db_instance.csye6225-su2020]
-#   key_name                = "csye6225_su20_aws"
-#   iam_instance_profile    = "${aws_iam_instance_profile.ec2_s3iamprofile.name}"
-#   root_block_device {
-#     volume_type           = "gp2"
-#     volume_size           = 20
-#     delete_on_termination = "true"
-#   }
-#   tags = {
-#     Name = "EC2 Instance from Terraform",
-#     cicd = "codedeploy"
-#   }
-#   user_data = <<-EOFS
-# #!/bin/bash
-# sudo mkdir /home/ubuntu/webapp
-# sudo chmod 755 /home/ubuntu/webapp
-# sudo mkdir /home/ubuntu/webapp/config
-# cat > /home/ubuntu/webapp/config/config.json << EOF
-# {
-# "development": {
-#     "username": "${aws_db_instance.csye6225-su2020.username}",
-#     "password": "${aws_db_instance.csye6225-su2020.password}",
-#     "database": "${aws_db_instance.csye6225-su2020.name}",
-#     "host": "${aws_db_instance.csye6225-su2020.address}",
-#     "dialect": "mysql",
-#     "operatorsAliases": false,
-#     "s3bucket": "${aws_s3_bucket.bucket.bucket}",
-#     "region": "${var.region}"
-#   }
-# }
-# EOF
-# EOFS
-# }
-
 resource "aws_dynamodb_table" "dynamodb" {
   name           = "csye6225"
   hash_key       = "id"
@@ -594,11 +554,6 @@ resource "aws_autoscaling_group" "auto_scale_group" {
     create_before_destroy = true
   }
 
-  # tag {
-  #   key = "environment"
-  #   value = "test"
-  #   propagate_at_launch = true
-  # }
 
   tag {
     key                 = "cicd"
@@ -692,6 +647,11 @@ resource "aws_lb_target_group" "target_group" {
   name     = "webapp-tg"
   port     = 5000
   protocol = "HTTP"
+  stickiness {    
+    type            = "lb_cookie"    
+    cookie_duration = 1800    
+    enabled         = true 
+  }   
   vpc_id   = "${aws_vpc.a4_vpc_csye6225.id}"
 }
 
