@@ -578,6 +578,9 @@ resource "aws_autoscaling_policy" "asg_scale_down_policy" {
   autoscaling_group_name = "${aws_autoscaling_group.auto_scale_group.name}"
 }
 
+variable "high_threshold" {
+  type = "string"
+}
 
 resource "aws_cloudwatch_metric_alarm" "CPUAlarmHigh" {
   alarm_name          = "CPUAlarmHigh"
@@ -587,14 +590,18 @@ resource "aws_cloudwatch_metric_alarm" "CPUAlarmHigh" {
   namespace           = "AWS/EC2"
   period              = "60"
   statistic           = "Average"
-  threshold           = "5"
+  threshold           = "${var.high_threshold}"
 
-  alarm_description = "Scale-up if CPU > 5% for 2 minutes"
+  alarm_description = "Scale-up if CPU > ${var.high_threshold}% for 2 minutes"
   alarm_actions     = ["${aws_autoscaling_policy.asg_scale_up_policy.arn}"]
 
   dimensions = {
     AutoScalingGroupName = "${aws_autoscaling_group.auto_scale_group.name}"
   }
+}
+
+variable "low_threshold" {
+  type = "string"
 }
 
 resource "aws_cloudwatch_metric_alarm" "CPUAlarmLow" {
@@ -605,9 +612,9 @@ resource "aws_cloudwatch_metric_alarm" "CPUAlarmLow" {
   namespace           = "AWS/EC2"
   period              = "60"
   statistic           = "Average"
-  threshold           = "3"
+  threshold           = "${var.low_threshold}"
 
-  alarm_description = "Scale-down if CPU < 3% for 2 minutes"
+  alarm_description = "Scale-down if CPU < ${var.low_threshold}% for 2 minutes"
   alarm_actions     = ["${aws_autoscaling_policy.asg_scale_down_policy.arn}"]
 
   dimensions = {

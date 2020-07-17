@@ -20,7 +20,9 @@ terraform plan -var="vpccider=10.0.0.0/24" \
                -var="codedeploy_bktname=codedeploy.vaibhavdhoke.me" \
                -var="ec2_s3iamprofile=ec2_s3iamprofile" \
                -var="images3bucket=webapp.vaibhav.dhoke" \
-               -var="packerpolicy=arn:aws:iam::934555267499:policy/circleci-ec2-ami" 
+               -var="packerpolicy=arn:aws:iam::934555267499:policy/circleci-ec2-ami" \
+               -var="high_threshold=90" \
+               -var="low_threshold=50"
 terraform apply -auto-approve -var="vpccider=10.0.0.0/24" \
                               -var="subnet1cider=10.0.0.0/26" \
                               -var="subnet2cider=10.0.0.64/26" \
@@ -40,4 +42,6 @@ terraform apply -auto-approve -var="vpccider=10.0.0.0/24" \
                               -var="codedeploy_bktname=codedeploy.vaibhavdhoke.me" \
                               -var="ec2_s3iamprofile=ec2_s3iamprofile" \
                               -var="images3bucket=webapp.vaibhav.dhoke" \
-                              -var="packerpolicy=arn:aws:iam::934555267499:policy/circleci-ec2-ami"
+                              -var="packerpolicy=arn:aws:iam::934555267499:policy/circleci-ec2-ami" \
+                              -var="high_threshold=90" \
+                              -var="low_threshold=50"
