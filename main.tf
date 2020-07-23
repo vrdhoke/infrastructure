@@ -219,6 +219,12 @@ resource "aws_dynamodb_table" "dynamodb" {
     name = "id"
     type = "S"
   }
+
+    ttl {
+    attribute_name = "TimeToLive"
+    enabled        = true
+  }
+
   read_capacity  = 20
   write_capacity = 20
 }
@@ -290,6 +296,11 @@ resource "aws_iam_role_policy_attachment" "cloudwatch-ec2-attach" {
 resource "aws_iam_role_policy_attachment" "cloudwatchadmin-ec2-attach" {
   role       = "${aws_iam_role.role.name}"
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "trigger-sns-ec2-attach" {
+  role       = "${aws_iam_role.role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
 }
 
 variable "codedeploy_bktname" {
@@ -415,6 +426,11 @@ resource "aws_iam_user_policy_attachment" "cicd-attach1" {
 resource "aws_iam_user_policy_attachment" "cicd-attach2" {
   user       = "${var.circleciuser}"
   policy_arn = "${var.packerpolicy}"
+}
+
+resource "aws_iam_user_policy_attachment" "cicd-lambda" {
+  user       = "${var.circleciuser}"
+  policy_arn = "arn:aws:iam::aws:policy/AWSLambdaFullAccess"
 }
 
 resource "aws_iam_role" "role1" {
@@ -689,3 +705,91 @@ resource "aws_route53_record" "www" {
     evaluate_target_health = true
   }
 }
+
+
+
+resource "aws_sns_topic" "password_reset" {
+  name = "password_reset"
+}
+
+resource "aws_iam_policy" "lambda_ses_policy" {
+  name        = "lambda_ses_policy"
+  description = "AWS SES policy for lambda function to send email"
+
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ses:SendEmail",
+                "ses:SendRawEmail"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+}
+
+
+resource "aws_iam_role" "sns_to_lambda" {
+  name = "sns_to_lambda"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+
+
+resource "aws_iam_role_policy_attachment" "basic-exec-role" {
+  role       = "${aws_iam_role.sns_to_lambda.name}"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "aws-ses-attachment" {
+  role       = "${aws_iam_role.sns_to_lambda.name}"
+  policy_arn = "${aws_iam_policy.lambda_ses_policy.arn}"
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb-lambda" {
+  role       = "${aws_iam_role.sns_to_lambda.name}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+}
+
+resource "aws_lambda_function" "lambda" {
+  filename         = "lambdafunction.zip"
+  function_name    = "email_handler"
+  role             = "${aws_iam_role.sns_to_lambda.arn}"
+  handler          = "index.handler"
+  runtime          = "nodejs12.x"
+} 
+
+resource "aws_lambda_permission" "invokelambdabysns" {
+    statement_id = "AllowExecutionFromSNS"
+    action = "lambda:InvokeFunction"
+    function_name = "${aws_lambda_function.lambda.arn}"
+    principal = "sns.amazonaws.com"
+    source_arn = "${aws_sns_topic.password_reset.arn}"
+}
+
+resource "aws_sns_topic_subscription" "snslambdasubscription" {
+  topic_arn = "${aws_sns_topic.password_reset.arn}"
+  protocol  = "lambda"
+  endpoint  = "${aws_lambda_function.lambda.arn}"
+}
+
