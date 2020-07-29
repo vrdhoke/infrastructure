@@ -107,12 +107,7 @@ resource "aws_security_group" "application" {
   name        = "application"
   description = "Security group for Book Web Application"
   vpc_id      = "${aws_vpc.a4_vpc_csye6225.id}"
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    security_groups    = ["${aws_security_group.lb_securitygroup.id}"]
-  }
+  
   ingress {
     from_port   = 443
     to_port     = 443
@@ -178,10 +173,21 @@ variable "db_name" {
   type = "string"
 }
 
+resource "aws_db_parameter_group" "sslconnection" {
+  name   = "sslconnectionenforce"
+  family = "mysql8.0"
+
+  parameter {
+    name  = "performance_schema"
+    value = "1"
+    apply_method = "pending-reboot"
+  }
+}
 
 resource "aws_db_instance" "csye6225-su2020" {
   allocated_storage      = 20
   engine                 = "mysql"
+  engine_version       = "8.0.16"
   instance_class         = "db.t3.micro"
   identifier             = "csye6225-su2020"
   username               = "${var.rds_username}"
@@ -192,6 +198,8 @@ resource "aws_db_instance" "csye6225-su2020" {
   multi_az               = "false"
   vpc_security_group_ids = ["${aws_security_group.database.id}"]
   db_subnet_group_name   = "${aws_db_subnet_group.databasesubnet.name}"
+  storage_encrypted      = true
+  parameter_group_name   = "${aws_db_parameter_group.sslconnection.name}"
 }
 
 variable "ami_id" {
@@ -638,9 +646,9 @@ resource "aws_security_group" "lb_securitygroup" {
   vpc_id      = "${aws_vpc.a4_vpc_csye6225.id}"
 
   ingress {
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -674,9 +682,10 @@ resource "aws_lb_target_group" "target_group" {
 
 resource "aws_lb_listener" "load_balancer_listener" {
   load_balancer_arn = "${aws_lb.application_load_balancer.arn}"
-  port              = "80"
-  protocol          = "HTTP"
-
+  port              = "443"
+  protocol          = "HTTPS"
+  certificate_arn   = "arn:aws:acm:us-east-1:934555267499:certificate/bcd377e2-78f9-4951-82d0-5abc052ace17"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
   default_action {
     type             = "forward"
     target_group_arn = "${aws_lb_target_group.target_group.arn}"
